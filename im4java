@@ -1,0 +1,91 @@
+鉴于对图片处理的IM4JAVA的官网有问题，API看不起来，而网上没有对图片流的处理，这里对图片处理进行简单的说明
+GraphicsMagick+im4java  安装完GraphicsMagick后，im4java才能调用
+（IM4JAVA是同时支持ImageMagick和GraphicsMagick的，这里是bool值，如果为true则使用GM，如果为false支持IM。）
+1.对于图片的大小，宽高，不建议用IM4java，直接用java自带的类处理就行，方便高效。
+2下面我附上按比例大小缩放裁剪图片（图片流）代码和注释，可以直接看懂
+/**
+ * @param x
+ *            起始X坐标
+ * @param y
+ *            起始Y坐标
+ * @param width
+ *            裁剪宽度
+ * @param height
+ *            裁剪高度
+ * @return 返回处理完图片的byte数组
+ */
+public byte[] cutImage(, int x, int y,int width, int height,InputStream in) {
+    try {
+        IMOperation op = new IMOperation();
+        Pipe pipeIn = new Pipe (in, null);//图片的输入流
+        ConvertCmd convert = new ConvertCmd(true);//当里面不填ture时，表示使用ImageMagick
+        //convert.setSearchPath(graphicsMagickPath); /
+        convert.setInputProvider(pipeIn);//将图片输入流放入处理器中
+    	  ByteArrayOutputStream os = new ByteArrayOutputStream();
+        Pipe pipeOut = new Pipe(null, os);//图片的输出流
+        op.addImage("-");//当读取的图片是流时，用-，否则直接写上图片的路径位置（包含图片名字）
+        //op.resize(null,400); //按高来缩放，高缩放为400px
+        //op.resize(400);//按宽来缩放，宽缩放为400px
+        op.crop(width, height, x, y); /** width：裁剪的宽度 * height：裁剪的高度 * x：裁剪的横坐标 * y：裁剪纵坐标 */
+        op.addImage("-");//当图片是用流输出时候，用-。如果是裁剪后得到图片文件就直接写图片的路径（包含图片名字）
+        convert.setOutputConsumer(pipeOut);//将图片输出流放入处理器中
+        convert.run(op);//运行
+      return  os.toByteArray();//返回输出流中处理过的图片
+    } catch (IOException e) {
+       log.error(e.getMessage());
+    } 
+    return null;
+}
+
+注---------图片按多少尺寸，按什么方式进行裁剪，这个需要根据自己的需求进行写方法
+下面附上图片按建议尺寸进行压缩裁剪，从图片的中间裁剪
+**
+     * 处理是按宽还是高压缩，以及返回切的x和y坐标
+     * @param op
+     * @param owidth 图片宽
+     * @param oheight 图片高
+     * @param cwidth  建议裁剪宽
+     * @param cheight  建议裁剪高
+     * @return
+     */
+    public List<Integer> resize(IMOperation op,int owidth,int oheight,int cwidth,int cheight){
+    	List<Integer> points=new ArrayList<Integer>();
+    	float fowidth=owidth;
+    	float fcwidth=cwidth;
+    	float foheight=oheight;
+    	float fcheight=cheight;
+    	float wparam=fowidth/fcwidth;
+    	float hparam=foheight/fcheight;
+    	if(oheight>owidth){   		
+    		float nowheight=oheight/wparam;
+    		int y=(int)((nowheight-cheight)/2);
+    		if(y<0){
+    			op.resize(null,cheight);
+        		float nowwidth=owidth/hparam;
+        		int x=(int)((nowwidth-cwidth)/2);
+        		points.add(x);
+        		points.add(0);
+        		return points;
+    		}
+    		op.resize(cwidth);
+    		points.add(0);
+    		points.add(y);
+    		return points;
+    	}
+    	else{
+    		float nowwidth=owidth/hparam;
+    		int x=(int)((nowwidth-cwidth)/2);
+    		if(x<0){
+        		float nowheight=oheight/wparam;
+        		int y=(int)((nowheight-cheight)/2);
+        		op.resize(cwidth);
+        		points.add(0);
+        		points.add(y);
+        		return points;
+    		}
+    		op.resize(null,cheight);
+    		points.add(x);
+    		points.add(0);
+    		return points;
+    	}
+    }
